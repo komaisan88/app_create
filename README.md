@@ -99,3 +99,8 @@ pip install -r requirements.txt
 ```bash
 uvicorn server:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+# ここからメモ
+どんなアプリを作るか：カラオケの点数記録アプリ
+どんなデータ：点数、音程、テクニック、ロングトーン、安定性、抑揚、最高音域、コメント
+どんな機能：検索機能、順番入れ替え

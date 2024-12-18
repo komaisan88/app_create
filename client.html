@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <!-- ビューポートの設定：モバイルデバイスでの表示を最適化 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>シンプルTODO</title>
+    <title>カラオケスコア管理</title>
     <style>
         /* フォームの上下に余白を追加 */
         .todo-form {
@@ -18,16 +18,57 @@
     </style>
 </head>
 <body>
-    <h1>TODOリスト</h1>
+    <h1>カラオケスコア管理</h1>
     
     <!-- TODOを追加するためのフォーム -->
-    <form id="todoForm" class="todo-form">
-        <input type="text" id="todoInput" placeholder="新しいTODOを入力..." required>
-        <button type="submit">追加</button>
+    <form id="scoreForm" class="score-form">
+        <input type="text" id="songTitle" placeholder="曲名" required>
+        <input type="text" id="artist" placeholder="アーティスト" required>
+        <input type="number" id="totalScore" placeholder="総合点" required min="0" max="100">
+        <input type="number" id="pitchScore" placeholder="音程" required min="0" max="100">
+        <input type="number" id="techniqueScore" placeholder="テクニック" required min="0" max="100">
+        <input type="number" id="longToneScore" placeholder="ロングトーン" required min="0" max="100">
+        <input type="number" id="stabilityScore" placeholder="安定性" required min="0" max="100">
+        <input type="number" id="expressionScore" placeholder="抑揚" required min="0" max="100">
+        <input type="number" id="highRangeScore" placeholder="最高音域" required min="0" max="100">
+        <textarea id="comments" placeholder="コメント"></textarea>
+        <button type="submit">登録</button>
     </form>
 
+    <div>
+        <input type="text" id="searchInput" placeholder="検索...">
+        <select id="sortBy">
+            <option value="performed_at">日時</option>
+            <option value="total_score">総合点</option>
+            <option value="song_title">曲名</option>
+            <option value="artist">アーティスト</option>
+        </select>
+        <select id="orderBy">
+            <option value="desc">降順</option>
+            <option value="asc">昇順</option>
+        </select>
+    </div>
+
     <!-- TODOリストを表示する場所 -->
-    <ul id="todoList"></ul>
+    <table id="scoreList">
+        <thread>
+            <tr>
+                <th>日時</th>
+                <th>曲名</th>
+                <th>アーティスト</th>
+                <th>総合点</th>
+                <th>音程</th>
+                <th>テクニック</th>
+                <th>ロングトーン</th>
+                <th>安定性</th>
+                <th>抑揚</th>
+                <th>最高音域</th>
+                <th>コメント</th>
+                <th>操作</th>
+            </tr>
+        </thread>
+        <tbody></tbody>
+    </table>        
 
     <script>
         // APIのベースURL：実際のAPIサーバーのアドレス
@@ -55,28 +96,40 @@
          * @param {Object} todo - TODOオブジェクト（id, title, completedを含む）
          * @returns {string} TODOアイテムのHTML文字列
          */
-        function renderTodo(todo) {
+        function renderScore(score) {
             return `
-                <li>
-                    <input type="checkbox" 
-                           ${todo.completed ? 'checked' : ''} 
-                           onchange="toggleTodo(${todo.id}, this.checked)">
-                    <span class="${todo.completed ? 'completed' : ''}">${todo.title}</span>
-                    <button onclick="deleteTodo(${todo.id})">削除</button>
-                </li>
+                <tr>
+                    <td>${score.performed_at}</td>
+                    <td>${score.song_title}</td>
+                    <td>${score.artist}</td>
+                    <td>${score.total_score}</td>
+                    <td>${score.pitch_score}</td>
+                    <td>${score.technique_score}</td>
+                    <td>${score.long_tone_score}</td>
+                    <td>${score.stability_score}</td>
+                    <td>${score.expression_score}</td>
+                    <td>${score.high_range_score}</td>
+                    <td>${score.comments || ''}</td>
+                    <td>
+                        <button onclick="deleteScore(${score.id})">削除</button>
+                    </td>
+                </tr>
             `;
         }
 
         /**
          * すべてのTODOを読み込んでページに表示
          */
-        async function loadTodos() {
+        async function loadScores() {
             // APIからTODOリストを取得
-            const todos = await api(API_URL);
-            if (todos) {
+            const searchTerm = document.getElementById('searchInput').value;
+            const sortBy = document.getElementById('sortBy').value;
+            const order = document.getElementById('orderBy').value;
+
+            if (scores) {
                 // 取得したTODOをHTMLに変換して表示
-                document.getElementById('todoList').innerHTML = 
-                    todos.map(renderTodo).join('');
+                document.querySelector('#scoreList tbody').innerHTML = 
+                    scores.map(renderScore).join('');
             }
         }
 
@@ -84,15 +137,14 @@
          * 新しいTODOを追加
          * @param {string} title - 新しいTODOのタイトル
          */
-        async function addTodo(title) {
-            // POSTリクエストでTODOを追加
+         async function addScore(scoreData) {
             await api(API_URL, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ title, completed: false })
+                body: JSON.stringify(scoreData)
             });
             // リストを再読み込みして表示を更新
-            loadTodos();
+            loadScores();
         }
 
         /**
@@ -100,51 +152,38 @@
          * @param {number} id - TODOのID
          * @param {boolean} completed - 新しい完了状態
          */
-        async function toggleTodo(id, completed) {
-            // 現在のTODO情報を取得
-            const todo = await api(`${API_URL}/${id}`);
-            if (todo) {
-                // PUTリクエストでTODOを更新
-                await api(`${API_URL}/${id}`, {
-                    method: 'PUT',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ ...todo, completed })
-                });
-                // リストを再読み込みして表示を更新
-                loadTodos();
+         async function deleteScore(id) {
+            if (confirm('このスコアを削除しますか？')) {
+                await api(`${API_URL}/${id}`, { method: 'DELETE' });
+                loadScores();
             }
         }
 
-        /**
-         * TODOを削除
-         * @param {number} id - 削除するTODOのID
-         */
-        async function deleteTodo(id) {
-            // DELETEリクエストでTODOを削除
-            await api(`${API_URL}/${id}`, { method: 'DELETE' });
-            // リストを再読み込みして表示を更新
-            loadTodos();
-        }
-
-        // ページ読み込み完了時の処理
         document.addEventListener('DOMContentLoaded', () => {
-            // 初期表示としてTODOリストを読み込む
-            loadTodos();
-            
-            // フォームの送信イベントを処理
-            document.getElementById('todoForm').addEventListener('submit', e => {
-                // フォームのデフォルトの送信動作を防止
+            loadScores();
+
+            document.getElementById('scoreForm').addEventListener('submit', e => {
                 e.preventDefault();
-                // 入力されたテキストを取得
-                const input = document.getElementById('todoInput');
-                const title = input.value.trim();
-                // テキストが入力されている場合のみTODOを追加
-                if (title) {
-                    addTodo(title);
-                    // 入力フィールドをクリア
-                    input.value = '';
-                }
+                const scoreData = {
+                    song_title: document.getElementById('songTitle').value,
+                    artist: document.getElementById('artist').value,
+                    total_score: parseInt(document.getElementById('totalScore').value),
+                    pitch_score: parseInt(document.getElementById('pitchScore').value),
+                    technique_score: parseInt(document.getElementById('techniqueScore').value),
+                    long_tone_score: parseInt(document.getElementById('longToneScore').value),
+                    stability_score: parseInt(document.getElementById('stabilityScore').value),
+                    expression_score: parseInt(document.getElementById('expressionScore').value),
+                    high_range_score: parseInt(document.getElementById('highRangeScore').value),
+                    comments: document.getElementById('comments').value
+                };
+                addScore(scoreData);
+                e.target.reset();
             });
+
+            // 検索・ソート機能のイベントリスナー
+            document.getElementById('searchInput').addEventListener('input', loadScores);
+            document.getElementById('sortBy').addEventListener('change', loadScores);
+            document.getElementById('orderBy').addEventListener('change', loadScores);
         });
     </script>
 </body>
