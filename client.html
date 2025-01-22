@@ -2,188 +2,183 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <!-- ビューポートの設定：モバイルデバイスでの表示を最適化 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>カラオケスコア管理</title>
+    <title>カラオケ点数記録</title>
     <style>
-        /* フォームの上下に余白を追加 */
-        .todo-form {
+        .record-form {
+            margin: 1rem 0;
+            display: grid;
+            gap: 10px;
+            max-width: 500px;
+        }
+        .record-list {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .record-list th, .record-list td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .search-box {
             margin: 1rem 0;
         }
-        /* 完了したTODOのスタイル：取り消し線と薄い色 */
-        .completed {
-            text-decoration: line-through;
-            color: gray;
+        .rating-info {
+            margin: 1rem 0;
+            font-size: 0.9em;
+            color: #666;
         }
     </style>
 </head>
 <body>
-    <h1>カラオケスコア管理</h1>
-    
-    <!-- TODOを追加するためのフォーム -->
-    <form id="scoreForm" class="score-form">
-        <input type="text" id="songTitle" placeholder="曲名" required>
-        <input type="text" id="artist" placeholder="アーティスト" required>
-        <input type="number" id="totalScore" placeholder="総合点" required min="0" max="100">
-        <input type="number" id="pitchScore" placeholder="音程" required min="0" max="100">
-        <input type="number" id="techniqueScore" placeholder="テクニック" required min="0" max="100">
-        <input type="number" id="longToneScore" placeholder="ロングトーン" required min="0" max="100">
-        <input type="number" id="stabilityScore" placeholder="安定性" required min="0" max="100">
-        <input type="number" id="expressionScore" placeholder="抑揚" required min="0" max="100">
-        <input type="number" id="highRangeScore" placeholder="最高音域" required min="0" max="100">
-        <textarea id="comments" placeholder="コメント"></textarea>
-        <button type="submit">登録</button>
-    </form>
+    <h1>カラオケの点数記録アプリ</h1>
 
-    <div>
+    <div class="rating-info">
+        ※ 評価基準: 1(低) ～ 5(高)
+    </div>
+
+    <!-- 検索ボックス -->
+    <div class="search-box">
         <input type="text" id="searchInput" placeholder="検索...">
-        <select id="sortBy">
-            <option value="performed_at">日時</option>
-            <option value="total_score">総合点</option>
-            <option value="song_title">曲名</option>
-            <option value="artist">アーティスト</option>
-        </select>
-        <select id="orderBy">
-            <option value="desc">降順</option>
-            <option value="asc">昇順</option>
+    </div>
+
+    <!-- 並び替えオプション -->
+    <div class="sort-options">
+        <select id="sortSelect">
+            <option value="date-desc">日付（新しい順）</option>
+            <option value="date-asc">日付（古い順）</option>
+            <option value="score-desc">点数（高い順）</option>
+            <option value="score-asc">点数（低い順）</option>
         </select>
     </div>
 
-    <!-- TODOリストを表示する場所 -->
-    <table id="scoreList">
-        <thread>
+    <!-- 記録追加フォーム -->
+    <form id="recordForm" class="record-form">
+        <input type="date" id="dateInput" required>
+        <input type="text" id="songInput" placeholder="曲名" required>
+        <input type="number" id="scoreInput" placeholder="点数" required min="0" max="100">
+        <input type="number" id="pitchInput" placeholder="音程 (1-40)" min="1" max="40">
+        <input type="number" id="longToneInput" placeholder="ロングトーン (1-10)" min="1" max="10">
+        <input type="number" id="stabilityInput" placeholder="安定性 (1-30)" min="1" max="30">
+        <input type="number" id="techniqueInput" placeholder="テクニック (1-5)" min="1" max="5">
+        <input type="number" id="modulationInput" placeholder="抑揚 (1-15)" min="1" max="15">
+        <textarea id="commentInput" placeholder="コメント"></textarea>
+        <button type="submit">追加</button>
+    </form>
+
+    <!-- 記録一覧 -->
+    <table id="recordList" class="record-list">
+        <thead>
             <tr>
-                <th>日時</th>
+                <th>日付</th>
                 <th>曲名</th>
-                <th>アーティスト</th>
-                <th>総合点</th>
+                <th>点数</th>
                 <th>音程</th>
-                <th>テクニック</th>
                 <th>ロングトーン</th>
                 <th>安定性</th>
+                <th>テクニック</th>
                 <th>抑揚</th>
-                <th>最高音域</th>
                 <th>コメント</th>
                 <th>操作</th>
             </tr>
-        </thread>
+        </thead>
         <tbody></tbody>
-    </table>        
+    </table>
 
     <script>
-        // APIのベースURL：実際のAPIサーバーのアドレス
-        const API_URL = 'http://localhost:8000/todos';
-        
-        /**
-         * APIとの通信を行う汎用関数
-         * @param {string} endpoint - APIのエンドポイント
-         * @param {Object} options - fetchのオプション（メソッド、ヘッダーなど）
-         * @returns {Promise} APIからのレスポンス
-         */
-        async function api(endpoint, options = {}) {
-            try {
-                const response = await fetch(endpoint, options);
-                if (!response.ok) throw new Error('API error');
-                return response.json();
-            } catch (error) {
-                alert('エラーが発生しました');
-                console.error(error);
+        let records = [];
+
+        // 記録を追加
+        function addRecord(record) {
+            records.push(record);
+            saveRecords();
+            displayRecords();
+        }
+
+        // 記録を削除
+        function deleteRecord(index) {
+            if (confirm('この記録を削除してもよろしいですか？')) {
+                records.splice(index, 1);
+                saveRecords();
+                displayRecords();
             }
         }
 
-        /**
-         * 1つのTODOアイテムのHTMLを生成
-         * @param {Object} todo - TODOオブジェクト（id, title, completedを含む）
-         * @returns {string} TODOアイテムのHTML文字列
-         */
-        function renderScore(score) {
-            return `
-                <tr>
-                    <td>${score.performed_at}</td>
-                    <td>${score.song_title}</td>
-                    <td>${score.artist}</td>
-                    <td>${score.total_score}</td>
-                    <td>${score.pitch_score}</td>
-                    <td>${score.technique_score}</td>
-                    <td>${score.long_tone_score}</td>
-                    <td>${score.stability_score}</td>
-                    <td>${score.expression_score}</td>
-                    <td>${score.high_range_score}</td>
-                    <td>${score.comments || ''}</td>
-                    <td>
-                        <button onclick="deleteScore(${score.id})">削除</button>
-                    </td>
-                </tr>
-            `;
+        // 記録を保存（ローカルストレージ）
+        function saveRecords() {
+            localStorage.setItem('karaokeRecords', JSON.stringify(records));
         }
 
-        /**
-         * すべてのTODOを読み込んでページに表示
-         */
-        async function loadScores() {
-            // APIからTODOリストを取得
-            const searchTerm = document.getElementById('searchInput').value;
-            const sortBy = document.getElementById('sortBy').value;
-            const order = document.getElementById('orderBy').value;
-
-            if (scores) {
-                // 取得したTODOをHTMLに変換して表示
-                document.querySelector('#scoreList tbody').innerHTML = 
-                    scores.map(renderScore).join('');
-            }
+        // 記録を読み込み
+        function loadRecords() {
+            const saved = localStorage.getItem('karaokeRecords');
+            records = saved ? JSON.parse(saved) : [];
+            displayRecords();
         }
 
-        /**
-         * 新しいTODOを追加
-         * @param {string} title - 新しいTODOのタイトル
-         */
-         async function addScore(scoreData) {
-            await api(API_URL, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(scoreData)
+        // 記録を表示
+        function displayRecords() {
+            const tbody = document.querySelector('#recordList tbody');
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const sortValue = document.getElementById('sortSelect').value;
+
+            // 検索とソートを適用
+            let filteredRecords = records.filter(record => 
+                record.song.toLowerCase().includes(searchTerm) ||
+                record.comment.toLowerCase().includes(searchTerm)
+            );
+
+            // ソート
+            filteredRecords.sort((a, b) => {
+                switch(sortValue) {
+                    case 'date-desc': return new Date(b.date) - new Date(a.date);
+                    case 'date-asc': return new Date(a.date) - new Date(b.date);
+                    case 'score-desc': return b.score - a.score;
+                    case 'score-asc': return a.score - b.score;
+                    default: return 0;
+                }
             });
-            // リストを再読み込みして表示を更新
-            loadScores();
+
+            tbody.innerHTML = filteredRecords.map((record, index) => `
+                <tr>
+                    <td>${record.date}</td>
+                    <td>${record.song}</td>
+                    <td>${record.score}</td>
+                    <td>${record.pitch}</td>
+                    <td>${record.longTone}</td>
+                    <td>${record.stability}</td>
+                    <td>${record.technique}</td>
+                    <td>${record.modulation}</td>
+                    <td>${record.comment}</td>
+                    <td><button onclick="deleteRecord(${index})">削除</button></td>
+                </tr>
+            `).join('');
         }
 
-        /**
-         * TODOの完了状態を切り替え
-         * @param {number} id - TODOのID
-         * @param {boolean} completed - 新しい完了状態
-         */
-         async function deleteScore(id) {
-            if (confirm('このスコアを削除しますか？')) {
-                await api(`${API_URL}/${id}`, { method: 'DELETE' });
-                loadScores();
-            }
-        }
-
+        // イベントリスナーの設定
         document.addEventListener('DOMContentLoaded', () => {
-            loadScores();
+            loadRecords();
 
-            document.getElementById('scoreForm').addEventListener('submit', e => {
+            document.getElementById('recordForm').addEventListener('submit', e => {
                 e.preventDefault();
-                const scoreData = {
-                    song_title: document.getElementById('songTitle').value,
-                    artist: document.getElementById('artist').value,
-                    total_score: parseInt(document.getElementById('totalScore').value),
-                    pitch_score: parseInt(document.getElementById('pitchScore').value),
-                    technique_score: parseInt(document.getElementById('techniqueScore').value),
-                    long_tone_score: parseInt(document.getElementById('longToneScore').value),
-                    stability_score: parseInt(document.getElementById('stabilityScore').value),
-                    expression_score: parseInt(document.getElementById('expressionScore').value),
-                    high_range_score: parseInt(document.getElementById('highRangeScore').value),
-                    comments: document.getElementById('comments').value
+                const newRecord = {
+                    date: document.getElementById('dateInput').value,
+                    song: document.getElementById('songInput').value,
+                    score: Number(document.getElementById('scoreInput').value),
+                    pitch: Number(document.getElementById('pitchInput').value),
+                    longTone: Number(document.getElementById('longToneInput').value),
+                    stability: Number(document.getElementById('stabilityInput').value),
+                    technique: Number(document.getElementById('techniqueInput').value),
+                    modulation: Number(document.getElementById('modulationInput').value),
+                    comment: document.getElementById('commentInput').value
                 };
-                addScore(scoreData);
+                addRecord(newRecord);
                 e.target.reset();
             });
 
-            // 検索・ソート機能のイベントリスナー
-            document.getElementById('searchInput').addEventListener('input', loadScores);
-            document.getElementById('sortBy').addEventListener('change', loadScores);
-            document.getElementById('orderBy').addEventListener('change', loadScores);
+            document.getElementById('searchInput').addEventListener('input', displayRecords);
+            document.getElementById('sortSelect').addEventListener('change', displayRecords);
         });
     </script>
 </body>
