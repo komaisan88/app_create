@@ -84,9 +84,14 @@ def create_score(score: Todo):
             (score.song_title, score.artist, score.total_score, score.pitch_score, score.technique_score, score.long_tone_score, score.stability_score, score.expression_score, score.high_range_score, score.comments)
         )
         score_id = cursor.lastrowid
+
+        conn.row_factory = sqlite3.Row
         created_score = conn.execute(
             "SELECT * FROM todos WHERE id = ?", (score_id,)
         ).fetchone()
+
+        if not created_score:
+            raise HTTPException(status_code=404, detail="Score not found")
         columns = [column[0] for column in cursor.description]
         return dict(zip(columns, created_score))
 
@@ -136,6 +141,7 @@ def delete_score(score_id: int):
         cursor = conn.execute(
             "DELETE FROM todos WHERE id = ?", (score_id,)
         )
+        conn.commit()
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Score not found")
         return {"message": "Score deleted successfully"}

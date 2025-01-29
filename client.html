@@ -138,11 +138,11 @@
 
     <script>
         // APIのURLを設定
-        const API_URL = "http://43.206.223.36:8000";  // FastAPIサーバーのURL
+        const API_URL = "http://localhost:8000";  // FastAPIサーバーのURL
 
         // 記録を追加
         function addRecord(record) {
-            fetch(`http://43.206.223.36:8000/score`, {
+            fetch(`http://localhost:8000/score`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -202,7 +202,7 @@
             const sortValue = document.getElementById('sortSelect').value;
     
             // APIからデータを取得
-            fetch(`http://43.206.223.36:8000/scores?search=${searchTerm}&sort_by=${sortValue}`)
+            fetch(`http://localhost:8000/scores?search=${searchTerm}&sort_by=${sortValue}`)
                 .then(response => response.json())
                 .then(data => {
                     tbody.innerHTML = data.map((record, index) => `
