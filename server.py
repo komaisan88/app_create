@@ -74,33 +74,32 @@ class KaraokeScoreResponse(Todo):
     performed_at: str
 
 
-# 新規TODOを作成するエンドポイント
+# 新規スコアを作成するエンドポイント
 @app.post("/score", response_model=KaraokeScoreResponse)
 def create_score(score: Todo):
     with sqlite3.connect("todos.db") as conn:
-        cursor = conn.execute(""
-            # SQLインジェクション対策のためパラメータ化したSQL文を使用
-            "INSERT INTO karaoke_scores (song_title, artist, total_score, pitch_score, technique_score, long_tone_score, stability_score, expression_score, high_range_score, comments) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (score.song_title, score.artist, score.total_score, score.pitch_score,score.technique_score, score.long_tone_score, score.stability_score,score.expression_score, score.high_range_score, score.comments),
+        cursor = conn.execute(
+            """INSERT INTO todos (song_title, artist, total_score, pitch_score, technique_score, long_tone_score, stability_score, expression_score, high_range_score, comments) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (score.song_title, score.artist, score.total_score, score.pitch_score, score.technique_score, score.long_tone_score, score.stability_score, score.expression_score, score.high_range_score, score.comments)
         )
-        score_id = cursor.lastrowid  # 新しく作成されたTODOのIDを取得
+        score_id = cursor.lastrowid
         created_score = conn.execute(
-            "SELECT * FROM karaoke_score WHERE id = ?", (score_id,)
-        ).fetchone
-        return dict(zip([column[0] for column in cursor.description], created_score))
+            "SELECT * FROM todos WHERE id = ?", (score_id,)
+        ).fetchone()
+        columns = [column[0] for column in cursor.description]
+        return dict(zip(columns, created_score))
 
 
-# 全てのTODOを取得するエンドポイント
+# 全てのスコアを取得するエンドポイント
 @app.get("/scores")
-def get_scores(search: Optional[str] = None, sort_by: Optional[str] = "perfomed_at", order: Optional[str] = "desc"):
+def get_scores(search: Optional[str] = None, sort_by: Optional[str] = "performed_at", order: Optional[str] = "desc"):
     with sqlite3.connect("todos.db") as conn:
-        query = "SELECT * FROM karaoke_scores"
+        query = "SELECT * FROM todos"
         params = []
 
         if search:
-            query += """ WHERE song_title LIKE ? 
-                        OR artist LIKE ? 
-                        OR comments LIKE ?"""
+            query += """ WHERE song_title LIKE ? OR artist LIKE ? OR comments LIKE ?"""
             search_term = f"%{search}%"
             params.extend([search_term, search_term, search_term])
 
@@ -115,42 +114,28 @@ def get_scores(search: Optional[str] = None, sort_by: Optional[str] = "perfomed_
         return [dict(zip(columns, score)) for score in scores]
 
 
-# 指定されたIDのTODOを取得するエンドポイント
+# 特定のスコアを取得するエンドポイント
 @app.get("/scores/{score_id}")
 def get_score(score_id: int):
     with sqlite3.connect("todos.db") as conn:
         score = conn.execute(
-            "SELECT * FROM karaoke_scores WHERE id = ?", (score_id,)
+            "SELECT * FROM todos WHERE id = ?", (score_id,)
         ).fetchone()
         if not score:
             raise HTTPException(status_code=404, detail="Score not found")
         columns = [column[0] for column in conn.execute(
-            "SELECT * FROM karaoke_scores LIMIT 1"
+            "SELECT * FROM todos LIMIT 1"
         ).description]
         return dict(zip(columns, score))
 
 
-# 指定されたIDのTODOを更新するエンドポイント
-@app.put("/todos/{todo_id}")
-def update_todo(todo_id: int, todo: Todo):
-    with sqlite3.connect("todos.db") as conn:
-        # タイトルと完了状態を更新
-        cursor = conn.execute(
-            "UPDATE todos SET title = ?, completed = ? WHERE id = ?",
-            (todo.title, todo.completed, todo_id),
-        )
-        if cursor.rowcount == 0:  # 更新対象のTODOが存在しない場合は404エラーを返す
-            raise HTTPException(status_code=404, detail="Todo not found")
-        return {"id": todo_id, "title": todo.title, "completed": todo.completed}
-
-
-# 指定されたIDのTODOを削除するエンドポイント
+# 指定されたIDのスコアを削除するエンドポイント
 @app.delete("/scores/{score_id}")
 def delete_score(score_id: int):
     with sqlite3.connect("todos.db") as conn:
-        # 指定されたIDのTODOを削除
         cursor = conn.execute(
-            "DELETE FROM todos WHERE id = ?", (score_id,))
-        if cursor.rowcount == 0:  # 削除対象のTODOが存在しない場合は404エラーを返す
-            raise HTTPException(status_code=404, detail="Todo not found")
+            "DELETE FROM todos WHERE id = ?", (score_id,)
+        )
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Score not found")
         return {"message": "Score deleted successfully"}

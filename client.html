@@ -36,7 +36,6 @@
 <body>
     <h1>カラオケの点数記録アプリ</h1>
 
-
     <!-- 記録追加フォーム -->
     <form id="recordForm" class="record-form">
         <label for="dateInput">日付</label>
@@ -105,79 +104,95 @@
     </table>
 
     <script>
-        let records = [];
+        // APIのURLを設定
+        const API_URL = "http://43.206.223.36:8000";  // FastAPIサーバーのURL
 
         // 記録を追加
         function addRecord(record) {
-            records.push(record);
-            saveRecords();
-            displayRecords();
+            fetch(`http://43.206.223.36:8000/score`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    song_title: record.song,
+                    artist: "Unknown",  // ここでアーティスト名を指定する
+                    total_score: record.score,
+                    pitch_score: record.pitch,
+                    technique_score: record.technique,
+                    long_tone_score: record.longTone,
+                    stability_score: record.stability,
+                    expression_score: record.modulation,
+                    high_range_score: 0, // 例: 高音域のスコア
+                    comments: record.comment
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Success:', data);
+                records.push(data); // 受け取ったデータを追加
+                saveRecords();
+                displayRecords();
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
         }
-
-        // 記録を削除
+    
+        // レコードを削除
         function deleteRecord(index) {
-            if (confirm('この記録を削除してもよろしいですか？')) {
+            const recordId = records[index].id;
+            fetch(`${API_URL}/scores/${recordId}`, {
+                method: 'DELETE',
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data);
                 records.splice(index, 1);
                 saveRecords();
                 displayRecords();
-            }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+            });
         }
 
-        // 記録を保存（ローカルストレージ）
-        function saveRecords() {
-            localStorage.setItem('karaokeRecords', JSON.stringify(records));
-        }
-
-        // 記録を読み込み
-        function loadRecords() {
-            const saved = localStorage.getItem('karaokeRecords');
-            records = saved ? JSON.parse(saved) : [];
+        // レコードをロード
+        function loadRecords(){
             displayRecords();
         }
-
+        
         // 記録を表示
         function displayRecords() {
             const tbody = document.querySelector('#recordList tbody');
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const sortValue = document.getElementById('sortSelect').value;
-
-            // 検索とソートを適用
-            let filteredRecords = records.filter(record => 
-                record.song.toLowerCase().includes(searchTerm) ||
-                record.comment.toLowerCase().includes(searchTerm)
-            );
-
-            // ソート
-            filteredRecords.sort((a, b) => {
-                switch(sortValue) {
-                    case 'date-desc': return new Date(b.date) - new Date(a.date);
-                    case 'date-asc': return new Date(a.date) - new Date(b.date);
-                    case 'score-desc': return b.score - a.score;
-                    case 'score-asc': return a.score - b.score;
-                    default: return 0;
-                }
-            });
-
-            tbody.innerHTML = filteredRecords.map((record, index) => `
-                <tr>
-                    <td>${record.date}</td>
-                    <td>${record.song}</td>
-                    <td>${record.score}</td>
-                    <td>${record.pitch}</td>
-                    <td>${record.longTone}</td>
-                    <td>${record.stability}</td>
-                    <td>${record.technique}</td>
-                    <td>${record.modulation}</td>
-                    <td>${record.comment}</td>
-                    <td><button onclick="deleteRecord(${index})">削除</button></td>
-                </tr>
-            `).join('');
+    
+            // APIからデータを取得
+            fetch(`http://43.206.223.36:8000/scores?search=${searchTerm}&sort_by=${sortValue}`)
+                .then(response => response.json())
+                .then(data => {
+                    tbody.innerHTML = data.map((record, index) => `
+                        <tr>
+                            <td>${record.performed_at}</td>
+                            <td>${record.song_title}</td>
+                            <td>${record.total_score}</td>
+                            <td>${record.pitch_score}</td>
+                            <td>${record.long_tone_score}</td>
+                            <td>${record.stability_score}</td>
+                            <td>${record.technique_score}</td>
+                            <td>${record.expression_score}</td>
+                            <td>${record.comments}</td>
+                            <td><button onclick="deleteRecord(${index})">削除</button></td>
+                        </tr>
+                    `).join('');
+                });
         }
-
-        // イベントリスナーの設定
+    
+        // イベントリスナー
         document.addEventListener('DOMContentLoaded', () => {
             loadRecords();
-
+    
             document.getElementById('recordForm').addEventListener('submit', e => {
                 e.preventDefault();
                 const newRecord = {
@@ -194,7 +209,7 @@
                 addRecord(newRecord);
                 e.target.reset();
             });
-
+    
             document.getElementById('searchInput').addEventListener('input', displayRecords);
             document.getElementById('sortSelect').addEventListener('change', displayRecords);
         });
