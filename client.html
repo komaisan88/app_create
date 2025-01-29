@@ -39,8 +39,10 @@
 
         .record-list {
             width: 100%;
+            max-width: 1000px; /* 最大幅を設定（必要に応じて変更） */
             border-collapse: collapse;
             margin-top: 20px;
+            box-sizing: border-box; /* パディングやボーダーを含めた幅の計算 */
         }
 
         .record-list th, .record-list td {
